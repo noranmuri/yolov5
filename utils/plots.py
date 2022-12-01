@@ -9,7 +9,7 @@ import os
 from copy import copy
 from pathlib import Path
 from urllib.error import URLError
-
+ 
 import cv2
 import matplotlib
 import matplotlib.pyplot as plt
@@ -179,6 +179,60 @@ class Annotator:
     def result(self):
         # Return annotated image as array
         return np.asarray(self.im)
+
+    def isCircleCenterInBox(self, circle, x, y , w, h)->bool:
+        if(circle[0] < x or circle[0] > x+w):
+            return False
+        elif(circle[1] < y or circle[1] > y+h):
+            return False
+        return True
+
+    def circle(self, box, frame):
+        leds = []
+        center = []
+
+        #gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        blur = cv2.GaussianBlur(gray, (3,3), 0)
+        circles = cv2.HoughCircles(blur, cv2.HOUGH_GRADIENT, 1, 30, None, maxRadius=200)
+
+        if circles is not None:
+            circles = np.uint16(np.around(circles))
+            for i in circles[0]:
+                if(len(leds)==2):
+                    break
+                if(self.isCircleCenterInBox(i, box[0], box[1] ,box[2]-box[0], box[3]-box[1])):
+                #if(sub(i[0], i[1]) > 200): # 해당 원의 중심이 픽셀값 200 보다 크다면 ( led 의 원을 추출했다면 )
+                    leds.append(i)
+                    #print("leds[0] = ", i[0], i[1])
+                    #west_north = (i[0]-i[2], i[1]-i[2])
+                    #east_south = (i[0]+i[2], i[1]+i[2])
+                    #self.draw.arc((box[0], box[1], box[2], box[3]), start=0, end=360, width=self.lw, fill=(0, 255, 0))
+                    #self.draw.elipse([west_north, east_south], outline=(0, 0, 255))
+                    cv2.circle(self.im, (i[0], i[1]), i[2], (0, 255, 0), 2)
+
+            if(len(leds)==2): # LED 가 추적이 되는 경우에는 원들의 중간 지점을 리턴
+                circle_one = leds[0]
+                circle_two = leds[1]
+
+                center_x = (circle_one[0] + circle_two[1]) / 2
+                center_y = (circle_one[1] + circle_two[1]) / 2
+                
+        else:# 추적이 되지 않는 경우에는 박스의 중간 지점을 리턴
+            #w = (box[2] - box[0])
+            #h = (box[3] - box[1])
+            center_x = ( box[0] + box[2] ) / 2
+            center_y = ( box[1] + box[3] ) / 2
+
+        #center_x = (float)(center_x)
+        #center_y = (float)(center_y)
+
+        center.append(center_x)
+        center.append(center_y)
+
+        return center
+
+        
 
 
 def feature_visualization(x, module_type, stage, n=32, save_dir=Path('runs/detect/exp')):
